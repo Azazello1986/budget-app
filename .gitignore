@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+# Alembic cache
+app/migrations/*.pyc
+
+# Docker build crap
+*.log
+
+# Node (если фронт когда-нибудь появится)
+node_modules/
