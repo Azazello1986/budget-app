@@ -1,13 +1,17 @@
+# IDE / OS
+.idea/
+.DS_Store
+
 # Python
 __pycache__/
 *.pyc
-.venv/
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Env / локальные конфиги
 .env
-# Alembic cache
-app/migrations/*.pyc
+docker-compose.override.yml
 
-# Docker build crap
-*.log
-
-# Node (если фронт когда-нибудь появится)
-node_modules/
+# Миграции и alembic.ini — храним в репо!
+# НЕ добавляй сюда app/migrations/ и alembic.ini
