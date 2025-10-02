@@ -1,4 +1,5 @@
 # app/src/schemas.py
+from datetime import date
 from pydantic import BaseModel, EmailStr, Field
 
 # USERS
@@ -50,3 +51,20 @@ class CategoryRead(BaseModel):
     budget_id: int
     name: str
     class Config: from_attributes = True
+
+class StepCreate(BaseModel):
+    budget_id: int
+    granularity: str = Field(pattern="^(day|week|month|year)$")
+    name: str
+    date_start: date
+    date_end: date
+
+class StepRead(BaseModel):
+    id: int
+    budget_id: int
+    granularity: str
+    name: str
+    date_start: date
+    date_end: date
+    class Config:
+        from_attributes = True
