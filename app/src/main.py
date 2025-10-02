@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.src.api import users, budgets, accounts, categories, steps, operations
 
 app = FastAPI()
