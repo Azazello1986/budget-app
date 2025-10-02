@@ -40,8 +40,8 @@ services:
     volumes:
       # Твой Caddyfile из репозитория
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # Статика GUI, которую Caddy отдаёт на /
-      - ./app/static:/srv/gui:ro
+      # Монтируем статику прямо в /srv
+      - ./app/static:/srv:ro
       # Служебные тома для сертификатов/конфига
       - caddy_data:/data
       - caddy_config:/config
