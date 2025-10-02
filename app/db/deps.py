@@ -1,14 +1,9 @@
-from contextlib import contextmanager
+from sqlalchemy.orm import Session
 from .base import SessionLocal
 
-@contextmanager
-def session_scope():
+def get_db() -> Session:
     db = SessionLocal()
     try:
         yield db
-        db.commit()
-    except:
-        db.rollback()
-        raise
     finally:
         db.close()
