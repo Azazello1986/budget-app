@@ -10,6 +10,9 @@ app.include_router(categories.router, prefix="/categories", tags=["categories"])
 app.include_router(steps.router,    prefix="/steps",    tags=["steps"])
 app.include_router(operations.router, prefix="/operations", tags=["operations"])
 
+# GUI
+app.mount("/gui", StaticFiles(directory="app/static", html=True), name="gui")
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
