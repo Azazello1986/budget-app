@@ -1,0 +1,27 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from app.src.deps import get_db
+from app.db import models
+from app.src.schemas import CategoryCreate, CategoryRead
+
+router = APIRouter()
+
+@router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+def create_category(payload: CategoryCreate, db: Session = Depends(get_db)):
+    if not db.query(models.Budget).filter(models.Budget.id == payload.budget_id).first():
+        raise HTTPException(400, "budget_id not found")
+    c = models.Category(budget_id=payload.budget_id, name=payload.name)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
+
+@router.get("", response_model=list[CategoryRead])
+def list_categories(
+    db: Session = Depends(get_db),
+    budget_id: int | None = Query(default=None)
+):
+    q = db.query(models.Category).order_by(models.Category.id.desc())
+    if budget_id is not None:
+        q = q.filter(models.Category.budget_id == budget_id)
+    return q.all()
