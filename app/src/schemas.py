@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pydantic import BaseModel, Field, EmailStr, model_validator
 
@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, EmailStr, model_validator
 class UserCreate(BaseModel):
     email: EmailStr
     name: str
+
 
 class UserRead(BaseModel):
     id: int
@@ -16,11 +17,13 @@ class UserRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 # ------------------ BUDGETS ------------------
 class BudgetCreate(BaseModel):
     name: str
     currency: str = Field(min_length=3, max_length=3)
     owner_user_id: int
+
 
 class BudgetRead(BaseModel):
     id: int
@@ -31,11 +34,13 @@ class BudgetRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 # ------------------ ACCOUNTS ------------------
 class AccountCreate(BaseModel):
     budget_id: int
     name: str
     currency: str = Field(min_length=3, max_length=3)
+
 
 class AccountRead(BaseModel):
     id: int
@@ -46,10 +51,12 @@ class AccountRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 # ------------------ CATEGORIES ------------------
 class CategoryCreate(BaseModel):
     budget_id: int
     name: str
+
 
 class CategoryRead(BaseModel):
     id: int
@@ -59,6 +66,7 @@ class CategoryRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 # ------------------ STEPS ------------------
 class StepCreate(BaseModel):
     budget_id: int
@@ -66,6 +74,7 @@ class StepCreate(BaseModel):
     name: str
     date_start: date
     date_end: date
+
 
 class StepRead(BaseModel):
     id: int
@@ -77,6 +86,7 @@ class StepRead(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 # ------------------ OPERATIONS ------------------
 class OperationCreate(BaseModel):
@@ -112,6 +122,7 @@ class OperationCreate(BaseModel):
             if self.account_id == self.account_id_to:
                 raise ValueError("account_id and account_id_to must be different")
         return self
+
 
 class OperationRead(BaseModel):
     id: int
