@@ -15,3 +15,5 @@ docker-compose.override.yml
 
 # Миграции и alembic.ini — храним в репо!
 # НЕ добавляй сюда app/migrations/ и alembic.ini
+
+/logs
