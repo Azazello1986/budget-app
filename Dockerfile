@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir \
 # Кладём код
 COPY app ./app
 
+# кладём alembic.ini рядом с /app
+COPY alembic.ini ./alembic.ini
+
 # Импорты ищут внутри /app
 ENV PYTHONPATH=/app
 
