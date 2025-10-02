@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field, EmailStr, model_validator
 
@@ -136,6 +136,16 @@ class OperationRead(BaseModel):
     category_id: int | None = None
     comment: str | None = None
     planned_ref_id: int | None = None
+
+    class Config:
+        from_attributes = True
+
+
+# ------------------ STEP SUMMARY ------------------
+class StepSummary(BaseModel):
+    total_income: Decimal
+    total_expense: Decimal
+    net: Decimal
 
     class Config:
         from_attributes = True
