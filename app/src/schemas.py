@@ -70,7 +70,7 @@ class StepRead(BaseModel):
         from_attributes = True
 
 # ---- OPERATIONS ----
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 from decimal import Decimal
 
 class OperationCreate(BaseModel):
@@ -79,31 +79,31 @@ class OperationCreate(BaseModel):
     sign: str = Field(pattern="^(income|expense|transfer)$")
     amount: Decimal = Field(gt=0)
     currency: str = Field(min_length=3, max_length=3)
+
     # для income/expense и источник для transfer
     account_id: int | None = None
     # для transfer (получатель)
     account_id_to: int | None = None
+
     category_id: int | None = None
     comment: str | None = None
+
     # ссылка фактической на плановую
     planned_ref_id: int | None = None
 
-    @field_validator("account_id")
-    @classmethod
-    def validate_account_non_transfer(cls, v, values):
-        if values.get("sign") in {"income", "expense"} and not v:
-            raise ValueError("account_id is required for income/expense")
-        return v
+    @model_validator(mode="after")
+    def _check_consistency(self):
+        if self.sign in {"income", "expense"}:
+            if not self.account_id:
+                raise ValueError("account_id is required for income/expense")
 
-    @field_validator("account_id_to")
-    @classmethod
-    def validate_accounts_transfer(cls, v, values):
-        if values.get("sign") == "transfer":
-            if not values.get("account_id") or not values.get("account_id_to"):
+        if self.sign == "transfer":
+            if not self.account_id or not self.account_id_to:
                 raise ValueError("account_id and account_id_to are required for transfer")
-            if values.get("account_id") == values.get("account_id_to"):
+            if self.account_id == self.account_id_to:
                 raise ValueError("account_id and account_id_to must be different")
-        return v
+
+        return self
 
 
 class OperationRead(BaseModel):
