@@ -1,5 +1,5 @@
 # app/src/schemas.py
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, Field
 
 # USERS
@@ -77,6 +77,7 @@ class OperationCreate(BaseModel):
     step_id: int
     kind: str = Field(pattern="^(planned|actual)$")
     sign: str = Field(pattern="^(income|expense|transfer)$")
+    date: datetime | None = None
     amount: Decimal = Field(gt=0)
     currency: str = Field(min_length=3, max_length=3)
 
