@@ -1,323 +1,157 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="utf-8"/>
-  <title>Budget App GUI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    body { margin: 0; background: #0b1020; color: #e6e8ef; }
-    header { padding: 14px 16px; background: #121a35; border-bottom: 1px solid #1e2b57; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    header input { padding: 8px 10px; border-radius: 8px; border: 1px solid #223066; background: #0e1530; color: #e6e8ef; min-width: 280px; }
-    header button { padding: 8px 12px; border-radius: 8px; border: 1px solid #2a3b7a; background: #1a2652; color: #e6e8ef; cursor: pointer; }
-    .wrap { display: grid; grid-template-columns: 380px 1fr; gap: 16px; padding: 16px; }
-    @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr; }}
-    .card { background: #0e1530; border: 1px solid #1b295b; border-radius: 14px; padding: 14px; }
-    .card h3 { margin: 0 0 10px; font-size: 16px; color: #a7b5ff; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    label { font-size: 12px; opacity: .9; }
-    input, select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #223066; background: #0b122b; color: #e6e8ef; }
-    .row { display: flex; gap: 8px; align-items: center; }
-    .row button { padding: 8px 10px; border-radius: 8px; border: 1px solid #2a3b7a; background: #1a2652; color: #e6e8ef; cursor: pointer; }
-    pre { background: #0b122b; border: 1px solid #1b295b; border-radius: 12px; padding: 12px; overflow: auto; }
-    .muted { color: #9fb0ff; opacity: .9; }
-    .ok { color: #9cffd1; }
-    .err { color: #ff9f9f; }
-  </style>
-</head>
-<body>
-<header>
-  <div class="row">
-    <label class="muted">API_BASE:</label>
-    <input id="apiBase" placeholder="http://127.0.0.1:8000" />
-    <button onclick="setApiBase()">Применить</button>
-    <span id="status" class="muted"></span>
-  </div>
-</header>
+  <head>
+    <meta charset="utf-8" />
+    <title>Budget App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/gui/styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="brand">💰 Budget App</div>
+      <nav class="toolbar-actions">
+        <button id="btnHealth" title="Проверка API">API: health</button>
+      </nav>
+    </header>
 
-<div class="wrap">
-  <div class="card">
-    <h3>Быстрые формы</h3>
+    <main class="grid">
+      <!-- Блок выбора бюджета -->
+      <section class="card">
+        <h2>Бюджет</h2>
+        <div class="row">
+          <label>Текущий бюджет</label>
+          <select id="budgetSelect"></select>
+          <button id="btnReloadEverything">Обновить</button>
+        </div>
 
-    <div class="grid">
-      <div>
-        <label>Email</label>
-        <input id="userEmail" value="user-{{ts}}@example.com">
-      </div>
-      <div>
-        <label>Имя</label>
-        <input id="userName" value="User">
-      </div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="createUser()">Создать пользователя</button>
-    </div>
+        <details>
+          <summary>Создать бюджет</summary>
+          <div class="row">
+            <input id="budgetName" placeholder="Название" value="Мой бюджет" />
+            <input id="budgetCurrency" placeholder="Валюта" value="EUR" />
+            <input id="budgetOwnerId" type="number" placeholder="owner_user_id" value="1" />
+            <button id="btnCreateBudget">Создать</button>
+          </div>
+        </details>
+      </section>
 
-    <hr style="border:0;border-top:1px solid #1b295b;margin:14px 0">
+      <!-- Справочники -->
+      <section class="card">
+        <h2>Счета и категории</h2>
+        <div class="row">
+          <label>Счета (текущего бюджета)</label>
+          <ul id="accountsList"></ul>
+        </div>
+        <div class="row">
+          <label>Категории (текущего бюджета)</label>
+          <ul id="categoriesList"></ul>
+        </div>
 
-    <div class="grid">
-      <div>
-        <label>Имя бюджета</label>
-        <input id="budgetName" value="Мой бюджет">
-      </div>
-      <div>
-        <label>Валюта</label>
-        <input id="budgetCurrency" value="EUR">
-      </div>
-    </div>
-    <div class="grid" style="margin-top:8px">
-      <div>
-        <label>owner_user_id</label>
-        <input id="ownerUserId" value="1">
-      </div>
-      <div></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="createBudget()">Создать бюджет</button>
-      <button onclick="listBudgets()">Список бюджетов</button>
-    </div>
+        <details>
+          <summary>Добавить счёт</summary>
+          <div class="row">
+            <input id="accName" placeholder="Название счёта" value="Кошелек" />
+            <input id="accCurrency" placeholder="Валюта" value="EUR" />
+            <button id="btnAddAccount">Добавить счёт</button>
+          </div>
+        </details>
 
-    <hr style="border:0;border-top:1px solid #1b295b;margin:14px 0">
+        <details>
+          <summary>Добавить категорию</summary>
+          <div class="row">
+            <input id="catName" placeholder="Название категории" value="Разное" />
+            <button id="btnAddCategory">Добавить категорию</button>
+          </div>
+        </details>
+      </section>
 
-    <div class="grid">
-      <div><label>budget_id</label><input id="accountBudgetId" value="1"></div>
-      <div><label>Название счёта</label><input id="accountName" value="Карта"></div>
-    </div>
-    <div class="grid" style="margin-top:8px">
-      <div><label>Валюта</label><input id="accountCurrency" value="EUR"></div>
-      <div></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="createAccount()">Создать счёт</button>
-      <button onclick="listAccounts()">Список счетов</button>
-    </div>
+      <!-- Шаги бюджета -->
+      <section class="card">
+        <h2>Шаги (месяцы)</h2>
+        <div class="row">
+          <label>Шаг</label>
+          <select id="stepSelect"></select>
+          <button id="btnRefreshStep">Обновить шаг</button>
+        </div>
 
-    <hr style="border:0;border-top:1px solid #1b295b;margin:14px 0">
+        <details open>
+          <summary>Создать шаг за месяц</summary>
+          <div class="row">
+            <input id="stepName" placeholder="Название" />
+            <input id="stepStart" type="date" />
+            <input id="stepEnd" type="date" />
+            <button id="btnCreateStep">Создать</button>
+          </div>
+        </details>
 
-    <div class="grid">
-      <div><label>budget_id</label><input id="catBudgetId" value="1"></div>
-      <div><label>Название категории</label><input id="catName" value="Продукты"></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="createCategory()">Создать категорию</button>
-      <button onclick="listCategories()">Список категорий</button>
-    </div>
+        <details>
+          <summary>Скопировать плановые операции в другой шаг</summary>
+          <div class="row">
+            <select id="copyToStep"></select>
+            <button id="btnCopyPlanned">Скопировать</button>
+          </div>
+        </details>
+      </section>
 
-    <hr style="border:0;border-top:1px solid #1b295b;margin:14px 0">
+      <!-- Операции -->
+      <section class="card">
+        <h2>Добавить операцию</h2>
+        <div class="row">
+          <label>Тип</label>
+          <select id="opKind">
+            <option value="planned">План</option>
+            <option value="actual" selected>Факт</option>
+          </select>
 
-    <div class="grid">
-      <div><label>budget_id</label><input id="stepBudgetId" value="1"></div>
-      <div><label>granularity</label><input id="stepGran" value="month"></div>
-    </div>
-    <div class="grid" style="margin-top:8px">
-      <div><label>name</label><input id="stepName" value="Текущий месяц"></div>
-      <div><label>date_start</label><input id="dateStart" placeholder="YYYY-MM-DD"></div>
-    </div>
-    <div class="grid" style="margin-top:8px">
-      <div><label>date_end</label><input id="dateEnd" placeholder="YYYY-MM-DD"></div>
-      <div></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="createStep()">Создать шаг</button>
-      <button onclick="listSteps()">Список шагов</button>
-    </div>
+          <label>Знак</label>
+          <select id="opSign">
+            <option value="expense" selected>Расход</option>
+            <option value="income">Доход</option>
+            <option value="transfer">Перевод</option>
+          </select>
+        </div>
 
-    <hr style="border:0;border-top:1px solid #1b295b;margin:14px 0">
+        <div class="row">
+          <input id="opAmount" type="number" step="0.01" placeholder="Сумма" />
+          <input id="opCurrency" placeholder="Валюта" value="EUR" />
+        </div>
 
-    <div class="grid-3">
-      <div><label>step_id</label><input id="opStepId" value="1"></div>
-      <div><label>kind</label>
-        <select id="opKind"><option>planned</option><option>actual</option></select>
-      </div>
-      <div><label>sign</label>
-        <select id="opSign"><option>expense</option><option>income</option><option>transfer</option></select>
-      </div>
+        <div class="row">
+          <label>Со счёта</label>
+          <select id="opAcc"></select>
 
-      <div><label>amount</label><input id="opAmount" value="10.00"></div>
-      <div><label>currency</label><input id="opCurrency" value="EUR"></div>
-      <div><label>category_id</label><input id="opCategoryId" value="1"></div>
+          <label id="accToLabel" class="hidden">На счёт</label>
+          <select id="opAccTo" class="hidden"></select>
+        </div>
 
-      <div><label>account_id</label><input id="opAccId" value="1"></div>
-      <div><label>account_id_to (для transfer)</label><input id="opAccToId" value=""></div>
-      <div><label>comment</label><input id="opComment" value="Тест"></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="createOperation()">Создать операцию</button>
-      <button onclick="listOperations()">Список операций (по step_id)</button>
-    </div>
+        <div class="row" id="catRow">
+          <label>Категория</label>
+          <select id="opCat"></select>
+        </div>
 
-    <hr style="border:0;border-top:1px solid #1b295b;margin:14px 0">
+        <div class="row">
+          <input id="opComment" placeholder="Комментарий" />
+        </div>
 
-    <div class="grid">
-      <div><label>step_id (лента/сводка)</label><input id="feedStepId" value="1"></div>
-      <div><label>to_step_id (копировать planned)</label><input id="copyToStepId" value="2"></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="getFeed()">Лента /steps/{id}/feed</button>
-      <button onclick="getSummary()">Сводка /steps/{id}/summary</button>
-      <button onclick="copyPlanned()">Копировать planned</button>
-    </div>
-  </div>
+        <div class="row">
+          <button id="btnAddOperation">Добавить</button>
+        </div>
+      </section>
 
-  <div class="card">
-    <h3>Логи / ответы</h3>
-    <pre id="out" style="min-height:520px"></pre>
+      <!-- Сводка и лента -->
+      <section class="card">
+        <h2>Сводка шага</h2>
+        <pre id="summaryBox">–</pre>
+        <h2>Лента операций</h2>
+        <ul id="feedList" class="feed"></ul>
+      </section>
+    </main>
 
-    <h3 style="margin-top:14px">Произвольный запрос</h3>
-    <div class="row">
-      <select id="rqMethod"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option></select>
-      <input id="rqPath" placeholder="/users или /operations?step_id=1" style="flex:1">
-      <button onclick="sendRaw()">Отправить</button>
-    </div>
-    <div style="margin-top:8px">
-      <label class="muted">JSON body (опционально)</label>
-      <textarea id="rqBody" rows="6" style="width:100%;background:#0b122b;color:#e6e8ef;border:1px solid #1b295b;border-radius:12px;padding:10px;"></textarea>
-    </div>
-  </div>
-</div>
+    <footer class="footer">
+      <span id="status">Готово</span>
+    </footer>
 
-<script>
-  const $ = (id) => document.getElementById(id);
-  function now() { return new Date().toISOString(); }
-  function log(s) { const out = $("out"); out.textContent += s + "\\n"; out.scrollTop = out.scrollHeight; }
-  function setStatus(text, ok=true){ const s=$("status"); s.textContent=text; s.className = ok? "ok" : "err"; }
-
-  // API base — по умолчанию текущий origin
-  let API_BASE = new URL("/", location.origin).toString().replace(/\/$/, "");
-  $("apiBase").value = API_BASE;
-
-  function setApiBase(){
-    const v = $("apiBase").value.trim().replace(/\/$/, "");
-    API_BASE = v || API_BASE;
-    setStatus("API_BASE = " + API_BASE, true);
-  }
-
-  async function req(method, path, body){
-    const url = API_BASE + path;
-    const opt = { method, headers: { "Content-Type": "application/json" } };
-    if (body) opt.body = JSON.stringify(body);
-    const t0 = performance.now();
-    const r = await fetch(url, opt);
-    const dt = (performance.now() - t0)/1000;
-    const txt = await r.text();
-    let parsed = null;
-    try { parsed = txt ? JSON.parse(txt) : null; } catch(e) {}
-    log(`>>> ${method} ${path}  [${r.status}] ${dt.toFixed(3)}s`);
-    log(parsed ? JSON.stringify(parsed, null, 2) : txt);
-    if (r.ok) setStatus(`${method} ${path} → ${r.status} OK`, true);
-    else setStatus(`${method} ${path} → ${r.status}`, false);
-    return { status: r.status, data: parsed, raw: txt };
-  }
-
-  // ---------- Users ----------
-  async function createUser(){
-    const email = $("userEmail").value.replace("{{ts}}", Date.now());
-    const name = $("userName").value;
-    await req("POST", "/users", { email, name });
-    await req("GET", "/users");
-  }
-
-  // ---------- Budgets ----------
-  async function createBudget(){
-    const name = $("budgetName").value;
-    const currency = $("budgetCurrency").value;
-    const owner_user_id = parseInt($("ownerUserId").value, 10);
-    const r = await req("POST", "/budgets", { name, currency, owner_user_id });
-    if (r.data && r.data.id){
-      $("accountBudgetId").value = r.data.id;
-      $("catBudgetId").value = r.data.id;
-      $("stepBudgetId").value = r.data.id;
-    }
-  }
-  async function listBudgets(){ await req("GET", "/budgets"); }
-
-  // ---------- Accounts ----------
-  async function createAccount(){
-    const budget_id = parseInt($("accountBudgetId").value, 10);
-    const name = $("accountName").value;
-    const currency = $("accountCurrency").value;
-    await req("POST", "/accounts", { budget_id, name, currency });
-    await listAccounts();
-  }
-  async function listAccounts(){ await req("GET", "/accounts"); }
-
-  // ---------- Categories ----------
-  async function createCategory(){
-    const budget_id = parseInt($("catBudgetId").value, 10);
-    const name = $("catName").value;
-    await req("POST", "/categories", { budget_id, name });
-    await listCategories();
-  }
-  async function listCategories(){ await req("GET", "/categories"); }
-
-  // ---------- Steps ----------
-  async function createStep(){
-    const budget_id = parseInt($("stepBudgetId").value, 10);
-    const granularity = $("stepGran").value || "month";
-    const name = $("stepName").value;
-    const date_start = $("dateStart").value;
-    const date_end = $("dateEnd").value;
-    await req("POST", "/steps", { budget_id, granularity, name, date_start, date_end });
-  }
-  async function listSteps(){
-    const budget_id = parseInt($("stepBudgetId").value, 10);
-    await req("GET", `/steps?budget_id=${budget_id}`);
-  }
-
-  // ---------- Operations ----------
-  async function createOperation(){
-    const payload = {
-      step_id: parseInt($("opStepId").value, 10),
-      kind: $("opKind").value,
-      sign: $("opSign").value,
-      amount: $("opAmount").value,
-      currency: $("opCurrency").value,
-      account_id: parseInt($("opAccId").value, 10),
-      comment: $("opComment").value || null
-    };
-    const catId = $("opCategoryId").value.trim();
-    if (catId) payload.category_id = parseInt(catId, 10);
-    const toId = $("opAccToId").value.trim();
-    if (toId) payload.account_id_to = parseInt(toId, 10);
-    await req("POST", "/operations", payload);
-  }
-  async function listOperations(){
-    const step_id = parseInt($("opStepId").value, 10);
-    await req("GET", `/operations?step_id=${step_id}`);
-  }
-
-  // ---------- Step feed / summary / copy_planned ----------
-  async function getFeed(){
-    const step_id = parseInt($("feedStepId").value, 10);
-    await req("GET", `/steps/${step_id}/feed`);
-  }
-  async function getSummary(){
-    const step_id = parseInt($("feedStepId").value, 10);
-    await req("GET", `/steps/${step_id}/summary`);
-  }
-  async function copyPlanned(){
-    const from_id = parseInt($("feedStepId").value, 10);
-    const to_id = parseInt($("copyToStepId").value, 10);
-    await req("POST", `/steps/${from_id}/copy_planned`, { to_step_id: to_id });
-  }
-
-  // ---------- Raw ----------
-  async function sendRaw(){
-    const m = $("rqMethod").value;
-    const p = $("rqPath").value.trim() || "/";
-    const bodyTxt = $("rqBody").value.trim();
-    let body = undefined;
-    if (bodyTxt){ try { body = JSON.parse(bodyTxt); } catch(e){ setStatus("JSON body не парсится", false); return; } }
-    await req(m, p.startsWith("/")? p : "/"+p, body);
-  }
-
-  // defaults
-  (function init(){
-    $("userEmail").value = "user-" + Date.now() + "@example.com";
-    setStatus("Готово", true);
-  })();
-</script>
-</body>
+    <script src="/gui/app.js"></script>
+  </body>
 </html>
 HTML
