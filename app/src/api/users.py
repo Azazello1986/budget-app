@@ -1,6 +1,7 @@
 # app/src/api/users.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from app.src.deps import get_db
 from app.db import models
 from app.src.schemas import UserCreate, UserRead
