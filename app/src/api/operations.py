@@ -60,6 +60,7 @@ def create_operation(payload: OperationCreate, db: Session = Depends(get_db)):
             raise HTTPException(400, "planned and actual must belong to the same step")
 
     op = models.Operation(
+        budget_id=step.budget_id,
         step_id=payload.step_id,
         kind=payload.kind,
         sign=payload.sign,
@@ -112,6 +113,7 @@ def copy_planned_operations(
     created = 0
     for p in planned_ops:
         clone = models.Operation(
+            budget_id=dst.budget_id,
             step_id=target_step_id,
             kind="planned",
             sign=p.sign,
