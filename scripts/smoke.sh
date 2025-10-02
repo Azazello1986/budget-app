@@ -70,3 +70,59 @@ req GET "/operations?step_id=$STEP_ID"
 
 echo -e "\nSMOKE END $(date -Is)" | tee -a "$LOG_FILE"
 echo "Log saved to: $LOG_FILE"
+
+# --- steps feed/summary/copy_planned ---
+
+SM_STEP_ID="${SM_STEP_ID:-1}"
+
+echo ">>> GET /steps?budget_id=$BUD_ID"
+t=$(date +%s%N)
+RESP=$(curl -s -w "\n%{http_code}" "$API_BASE/steps?budget_id=$BUD_ID")
+HTTP_CODE=$(echo "$RESP" | tail -n1); BODY=$(echo "$RESP" | sed '$d')
+dur $t
+log "HTTP_CODE=$HTTP_CODE TIME=$ELAPSED"; log "BODY:\n$BODY"
+[ "$HTTP_CODE" = "200" ] || FAIL=1
+
+echo ">>> GET /steps/$SM_STEP_ID/feed"
+t=$(date +%s%N)
+RESP=$(curl -s -w "\n%{http_code}" "$API_BASE/steps/$SM_STEP_ID/feed")
+HTTP_CODE=$(echo "$RESP" | tail -n1); BODY=$(echo "$RESP" | sed '$d')
+dur $t
+log "HTTP_CODE=$HTTP_CODE TIME=$ELAPSED"; log "BODY:\n$BODY"
+[ "$HTTP_CODE" = "200" ] || FAIL=1
+
+echo ">>> GET /steps/$SM_STEP_ID/summary"
+t=$(date +%s%N)
+RESP=$(curl -s -w "\n%{http_code}" "$API_BASE/steps/$SM_STEP_ID/summary")
+HTTP_CODE=$(echo "$RESP" | tail -n1); BODY=$(echo "$RESP" | sed '$d')
+dur $t
+log "HTTP_CODE=$HTTP_CODE TIME=$ELAPSED"; log "BODY:\n$BODY"
+[ "$HTTP_CODE" = "200" ] || FAIL=1
+
+# Копируем плановые из шага 1 в 2 (если шага 2 нет — создадим)
+echo ">>> ensure step #2 exists (month current)"
+CUR_MONTH=$(date +%Y-%m)
+STEP_NAME="SMOKE $CUR_MONTH"
+PAYLOAD=$(jq -n \
+  --arg bid "$BUD_ID" \
+  --arg name "$STEP_NAME" \
+  '{budget_id:($bid|tonumber), granularity:"month", name:$name,
+    date_start:"'"$(date +%Y-%m-01)"'", date_end:"'"$(date -d "$(date +%Y-%m-01) +1 month -1 day" +%Y-%m-%d)"'"}')
+
+RESP=$(curl -s -w "\n%{http_code}" -X POST "$API_BASE/steps" -H "Content-Type: application/json" -d "$PAYLOAD")
+HTTP_CODE=$(echo "$RESP" | tail -n1); BODY=$(echo "$RESP" | sed '$d')
+if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+  STEP2_ID=$(echo "$BODY" | jq -r '.id')
+else
+  # попробуем найти уже существующий
+  STEP2_ID=$(curl -s "$API_BASE/steps?budget_id=$BUD_ID" | jq -r '.[0].id')
+fi
+
+echo ">>> POST /steps/1/copy_planned -> step=$STEP2_ID"
+t=$(date +%s%N)
+RESP=$(curl -s -w "\n%{http_code}" -X POST "$API_BASE/steps/1/copy_planned" \
+  -H "Content-Type: application/json" -d "{\"to_step_id\":$STEP2_ID}")
+HTTP_CODE=$(echo "$RESP" | tail -n1); BODY=$(echo "$RESP" | sed '$d')
+dur $t
+log "HTTP_CODE=$HTTP_CODE TIME=$ELAPSED"; log "BODY:\n$BODY"
+[ "$HTTP_CODE" = "200" ] || FAIL=1
