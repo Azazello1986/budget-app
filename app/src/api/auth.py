@@ -7,7 +7,7 @@ from app.db import models
 from app.src import schemas
 from app.src.security import (
     hash_password, verify_password, create_jwt, decode_jwt,
-    ssh_fingerprint_sha256, parse_fp_header
+    # ssh_fingerprint_sha256, parse_fp_header,  # ← временно не используем, чтобы не падать, пока нет колонки в БД
 )
 
 router = APIRouter(tags=["auth"])  # prefix задаётся при include_router в main.py
@@ -41,7 +41,7 @@ def current_user(
     Достаём пользователя из одного из источников (в порядке приоритета):
     1) Bearer JWT из Authorization
     2) JWT из cookie
-    3) Отпечаток SSH-ключа в заголовке X-SSH-Key-Fingerprint
+    3) (временно отключено) Отпечаток SSH-ключа
     """
     # 0) Bearer token in Authorization header
     if authorization and authorization.lower().startswith("bearer "):
@@ -60,13 +60,13 @@ def current_user(
             if user:
                 return user
 
-    # 2) SSH fingerprint header
-    if x_ssh_fp:
-        fp = parse_fp_header(x_ssh_fp)
-        if fp:
-            user = db.query(models.User).filter(models.User.ssh_fingerprint == fp).first()
-            if user:
-                return user
+    # 2) SSH fingerprint header (ОТКЛЮЧЕНО до появления колонки ssh_fingerprint в БД)
+    # if x_ssh_fp:
+    #     fp = parse_fp_header(x_ssh_fp)
+    #     if fp:
+    #         user = db.query(models.User).filter(models.User.ssh_fingerprint == fp).first()
+    #         if user:
+    #             return user
 
     raise HTTPException(status_code=401, detail="auth required")
 
@@ -94,20 +94,12 @@ async def register(request: Request, db: Session = Depends(get_db)):
     if db.query(models.User).filter(models.User.email == payload.email).first():
         raise HTTPException(409, "email already registered")
 
-    # Опциональный SSH ключ -> отпечаток
-    ssh_fp = None
-    if payload.ssh_public_key:
-        try:
-            ssh_fp = ssh_fingerprint_sha256(payload.ssh_public_key)
-        except Exception:
-            raise HTTPException(400, "invalid ssh public key")
-
+    # Опциональный SSH ключ — сохраняем как есть (без отпечатка пока)
     user = models.User(
         email=payload.email,
         name=payload.name,
-        password_hash=hash_password(payload.password),
+        hashed_password=hash_password(payload.password),  # ← ВАЖНО: поле в БД называется hashed_password
         ssh_public_key=payload.ssh_public_key,
-        ssh_fingerprint=ssh_fp,
     )
     db.add(user)
     try:
@@ -123,7 +115,7 @@ async def register(request: Request, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.UserRead)
 def login(payload: schemas.LoginPayload, response: Response, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == payload.email).first()
-    if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
+    if not user or not getattr(user, "hashed_password", None) or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(401, "invalid credentials")
     token = create_jwt(user.id)
     set_session_cookie(response, token)
@@ -140,7 +132,6 @@ def refresh(
     uid = None
     if authorization and authorization.lower().startswith("bearer "):
         uid = decode_jwt(authorization.split(" ", 1)[1].strip())
-    # FIX: ранее здесь была опечатка; должно быть `if not uid and session:`
     if not uid and session:
         uid = decode_jwt(session)
     if not uid:
