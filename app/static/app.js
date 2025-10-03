@@ -1,230 +1,375 @@
+// app/static/app.js
+
+// -------- helpers --------
+const API = {
+  async req(method, path, body) {
+    const res = await fetch(`/api${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* leave as text */ }
+    if (!res.ok) {
+      const msg = data && data.detail ? data.detail : text || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  },
+  get(path) { return this.req('GET', path); },
+  post(path, body) { return this.req('POST', path, body); },
+};
+
 const $ = (sel) => document.querySelector(sel);
-const apiBase = location.origin; // тот же хост, что и бэкенд
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const fmtMoney = (v, c='EUR') => `${v} ${c}`;
+
+function setStatus(msg, ok=true) {
+  const el = $('#status');
+  el.textContent = msg;
+  el.style.color = ok ? 'inherit' : '#b00020';
+}
+
+function option(el, value, label) {
+  const o = document.createElement('option');
+  o.value = value;
+  o.textContent = label ?? value;
+  el.appendChild(o);
+  return o;
+}
+
+// -------- state --------
 const state = {
   budgets: [],
   accounts: [],
   categories: [],
   steps: [],
-  currentBudgetId: +localStorage.getItem('budgetId') || 1,
-  currentStepId: +localStorage.getItem('stepId') || null,
+  currentBudgetId: null,
+  currentStepId: null,
 };
 
-const statusEl = $('#status');
+// -------- UI refs --------
+const ui = {
+  btnHealth: $('#btnHealth'),
+  btnReloadEverything: $('#btnReloadEverything'),
 
-async function api(path, opts={}) {
-  const res = await fetch(`${apiBase}${path}`, {
-    headers: { 'Content-Type':'application/json' },
-    ...opts,
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`);
-  const text = await res.text();
-  try { return JSON.parse(text); } catch { return text; }
-}
+  budgetSelect: $('#budgetSelect'),
+  budgetName: $('#budgetName'),
+  budgetCurrency: $('#budgetCurrency'),
+  budgetOwnerId: $('#budgetOwnerId'),
+  btnCreateBudget: $('#btnCreateBudget'),
 
-function fmtMoney(amount, curr) {
-  return `${amount} ${curr}`;
-}
+  accountsList: $('#accountsList'),
+  categoriesList: $('#categoriesList'),
+  accName: $('#accName'),
+  accCurrency: $('#accCurrency'),
+  btnAddAccount: $('#btnAddAccount'),
+  catName: $('#catName'),
+  btnAddCategory: $('#btnAddCategory'),
 
-function setStatus(text) {
-  statusEl.textContent = text;
-}
+  stepSelect: $('#stepSelect'),
+  stepName: $('#stepName'),
+  stepStart: $('#stepStart'),
+  stepEnd: $('#stepEnd'),
+  btnCreateStep: $('#btnCreateStep'),
+  btnRefreshStep: $('#btnRefreshStep'),
 
-function fillSelect(sel, items, getVal, getText) {
-  sel.innerHTML = '';
-  for (const it of items) {
-    const opt = document.createElement('option');
-    opt.value = getVal(it);
-    opt.textContent = getText(it);
-    sel.appendChild(opt);
-  }
-}
+  copyToStep: $('#copyToStep'),
+  btnCopyPlanned: $('#btnCopyPlanned'),
 
-function filterByBudget(list) {
-  return list.filter(x => x.budget_id === state.currentBudgetId);
-}
+  opKind: $('#opKind'),
+  opSign: $('#opSign'),
+  opAmount: $('#opAmount'),
+  opCurrency: $('#opCurrency'),
+  opAcc: $('#opAcc'),
+  opAccTo: $('#opAccTo'),
+  accToLabel: $('#accToLabel'),
+  catRow: $('#catRow'),
+  opCat: $('#opCat'),
+  opComment: $('#opComment'),
+  btnAddOperation: $('#btnAddOperation'),
 
-// ------- загрузка справочников -------
+  summaryBox: $('#summaryBox'),
+  feedList: $('#feedList'),
+};
+
+// -------- load & render --------
 async function loadBudgets() {
-  state.budgets = await api('/budgets');
-  fillSelect($('#budgetSelect'), state.budgets, x => x.id, x => `#${x.id} ${x.name} (${x.currency})`);
-  if (!state.currentBudgetId && state.budgets.length) state.currentBudgetId = state.budgets[0].id;
-  $('#budgetSelect').value = state.currentBudgetId;
+  const data = await API.get('/budgets');
+  state.budgets = data;
+  // Выбираем последний созданный бюджет (по id)
+  const last = [...data].sort((a,b)=>b.id-a.id)[0] || null;
+  state.currentBudgetId = last ? last.id : null;
 }
 
-async function loadAccounts() {
-  const all = await api('/accounts');
-  state.accounts = filterByBudget(all);
-  const text = state.accounts.map(a => `#${a.id} ${a.name} (${a.currency})`).join('\n') || '—';
-  $('#accountsList').innerHTML = text.split('\n').map(li => `<li>${li}</li>`).join('');
-  fillSelect($('#opAcc'), state.accounts, x => x.id, x => `${x.name} (#${x.id})`);
-  fillSelect($('#opAccTo'), state.accounts, x => x.id, x => `${x.name} (#${x.id})`);
+function renderBudgets() {
+  const sel = ui.budgetSelect;
+  sel.innerHTML = '';
+  state.budgets
+    .sort((a,b)=>b.id-a.id)
+    .forEach(b => option(sel, b.id, `#${b.id} — ${b.name} (${b.currency})`));
+  if (state.currentBudgetId) sel.value = String(state.currentBudgetId);
 }
 
-async function loadCategories() {
-  const all = await api('/categories');
-  state.categories = filterByBudget(all);
-  const text = state.categories.map(c => `#${c.id} ${c.name}`).join('\n') || '—';
-  $('#categoriesList').innerHTML = text.split('\n').map(li => `<li>${li}</li>`).join('');
-  fillSelect($('#opCat'), state.categories, x => x.id, x => `${x.name} (#${x.id})`);
+async function loadAccountsCategories() {
+  // API /accounts возвращает все; фильтруем по budget_id
+  const [allAcc, allCat] = await Promise.all([
+    API.get('/accounts'),
+    API.get('/categories'),
+  ]);
+  state.accounts = allAcc.filter(a => a.budget_id === state.currentBudgetId);
+  state.categories = allCat.filter(c => c.budget_id === state.currentBudgetId);
+}
+
+function renderAccountsCategories() {
+  ui.accountsList.innerHTML = '';
+  state.accounts.forEach(a => {
+    const li = document.createElement('li');
+    li.textContent = `#${a.id} ${a.name} (${a.currency})`;
+    ui.accountsList.appendChild(li);
+  });
+
+  ui.categoriesList.innerHTML = '';
+  state.categories.forEach(c => {
+    const li = document.createElement('li');
+    li.textContent = `#${c.id} ${c.name}`;
+    ui.categoriesList.appendChild(li);
+  });
+
+  // заполняем селекты для операций
+  ui.opAcc.innerHTML = '';
+  state.accounts.forEach(a => option(ui.opAcc, a.id, `${a.name} (#${a.id})`));
+  ui.opAccTo.innerHTML = '';
+  state.accounts.forEach(a => option(ui.opAccTo, a.id, `${a.name} (#${a.id})`));
+  ui.opCat.innerHTML = '';
+  state.categories.forEach(c => option(ui.opCat, c.id, `${c.name} (#${c.id})`));
 }
 
 async function loadSteps() {
-  state.steps = await api(`/steps?budget_id=${state.currentBudgetId}`);
-  fillSelect($('#stepSelect'), state.steps, x => x.id, x => `#${x.id} ${x.name}`);
-  fillSelect($('#copyToStep'), state.steps, x => x.id, x => `#${x.id} ${x.name}`);
-
-  if (!state.currentStepId && state.steps.length) state.currentStepId = state.steps[0].id;
-  $('#stepSelect').value = state.currentStepId ?? '';
+  if (!state.currentBudgetId) { state.steps = []; return; }
+  state.steps = await API.get(`/steps?budget_id=${state.currentBudgetId}`);
+  // Выбираем последний шаг
+  const last = [...state.steps].sort((a,b)=>b.id-a.id)[0] || null;
+  state.currentStepId = last ? last.id : null;
 }
 
-// ------- действия над шагом -------
-async function refreshStepData() {
-  if (!state.currentStepId) return;
-  const sum = await api(`/steps/${state.currentStepId}/summary`);
-  $('#summaryBox').textContent = `Доходы: ${sum.total_income}\nРасходы: ${sum.total_expense}\nИтого: ${sum.net}`;
+function renderSteps() {
+  ui.stepSelect.innerHTML = '';
+  state.steps
+    .sort((a,b)=>b.id-a.id)
+    .forEach(s => option(ui.stepSelect, s.id, `#${s.id} ${s.name} ${s.date_start}..${s.date_end}`));
+  if (state.currentStepId) ui.stepSelect.value = String(state.currentStepId);
 
-  const feed = await api(`/steps/${state.currentStepId}/feed`);
-  $('#feedList').innerHTML = feed.map(op => {
-    const what = op.sign === 'transfer'
-      ? `Перевод ${fmtMoney(op.amount, op.currency)} (#${op.account_id} → #${op.account_id_to})`
-      : `${op.sign === 'expense' ? 'Расход' : 'Доход'} ${fmtMoney(op.amount, op.currency)} [кат. ${op.category_id ?? '—'}]`;
-    return `<li><strong>#${op.id}</strong> ${what}<br><small>${op.comment ?? ''}</small></li>`;
-  }).join('');
+  // селект для копирования
+  ui.copyToStep.innerHTML = '';
+  state.steps
+    .sort((a,b)=>b.id-a.id)
+    .forEach(s => option(ui.copyToStep, s.id, `#${s.id} ${s.name}`));
 }
 
-// ------- формы -------
-function computeDefaultMonth() {
-  const d = new Date();
-  const y = d.getFullYear(), m = d.getMonth(); // текущий
-  const start = new Date(y, m, 1);
-  const end = new Date(y, m + 1, 0);
-  const toISO = (dt) => dt.toISOString().slice(0,10);
-  $('#stepName').value = `Месяц ${toISO(start).slice(0,7)}`;
-  $('#stepStart').value = toISO(start);
-  $('#stepEnd').value = toISO(end);
-}
-
-function updateOpFormVisibility() {
-  const sign = $('#opSign').value;
-  const isTransfer = sign === 'transfer';
-  $('#accToLabel').classList.toggle('hidden', !isTransfer);
-  $('#opAccTo').classList.toggle('hidden', !isTransfer);
-  $('#catRow').classList.toggle('hidden', isTransfer);
-}
-
-// ------- события UI -------
-async function onBudgetChanged() {
-  state.currentBudgetId = +$('#budgetSelect').value;
-  localStorage.setItem('budgetId', String(state.currentBudgetId));
-  setStatus(`Бюджет #${state.currentBudgetId}`);
-  await Promise.all([loadAccounts(), loadCategories(), loadSteps()]);
-  state.currentStepId = +$('#stepSelect').value || null;
-  localStorage.setItem('stepId', String(state.currentStepId || ''));
-  await refreshStepData();
-}
-
-async function onCreateBudget() {
-  const name = $('#budgetName').value.trim();
-  const currency = $('#budgetCurrency').value.trim() || 'EUR';
-  const owner = +$('#budgetOwnerId').value || 1;
-  const b = await api('/budgets', { method:'POST', body: JSON.stringify({ name, currency, owner_user_id: owner }) });
-  setStatus(`Создан бюджет #${b.id}`);
-  await loadBudgets();
-  $('#budgetSelect').value = b.id;
-  await onBudgetChanged();
-}
-
-async function onAddAccount() {
-  const name = $('#accName').value.trim();
-  const currency = $('#accCurrency').value.trim() || 'EUR';
-  const a = await api('/accounts', { method:'POST', body: JSON.stringify({ budget_id: state.currentBudgetId, name, currency }) });
-  setStatus(`Счёт #${a.id} создан`);
-  await loadAccounts();
-}
-
-async function onAddCategory() {
-  const name = $('#catName').value.trim();
-  const c = await api('/categories', { method:'POST', body: JSON.stringify({ budget_id: state.currentBudgetId, name }) });
-  setStatus(`Категория #${c.id} создана`);
-  await loadCategories();
-}
-
-async function onCreateStep() {
-  const name = $('#stepName').value.trim();
-  const date_start = $('#stepStart').value;
-  const date_end = $('#stepEnd').value;
-  const payload = { budget_id: state.currentBudgetId, granularity:'month', name, date_start, date_end };
-  const s = await api('/steps', { method:'POST', body: JSON.stringify(payload) });
-  setStatus(`Шаг #${s.id} создан`);
-  await loadSteps();
-  $('#stepSelect').value = s.id;
-  state.currentStepId = s.id;
-  localStorage.setItem('stepId', String(state.currentStepId));
-  await refreshStepData();
-}
-
-async function onStepChanged() {
-  state.currentStepId = +$('#stepSelect').value || null;
-  localStorage.setItem('stepId', String(state.currentStepId || ''));
-  await refreshStepData();
-}
-
-async function onCopyPlanned() {
-  const toId = +$('#copyToStep').value;
-  if (!state.currentStepId || !toId) return;
-  const res = await api(`/steps/${state.currentStepId}/copy_planned`, {
-    method:'POST', body: JSON.stringify({ to_step_id: toId })
+async function loadSummaryFeed() {
+  if (!state.currentStepId) { ui.summaryBox.textContent = '–'; ui.feedList.innerHTML=''; return; }
+  const [sum, feed] = await Promise.all([
+    API.get(`/steps/${state.currentStepId}/summary`),
+    API.get(`/steps/${state.currentStepId}/feed`),
+  ]);
+  ui.summaryBox.textContent = `Доходы: ${sum.total_income}\nРасходы: ${sum.total_expense}\nСальдо: ${sum.net}`;
+  // лента
+  ui.feedList.innerHTML = '';
+  feed.forEach(op => {
+    const li = document.createElement('li');
+    const title = `[${op.kind}/${op.sign}] ${fmtMoney(op.amount, op.currency)}`;
+    const details = [];
+    if (op.account_id) details.push(`acc#${op.account_id}`);
+    if (op.account_id_to) details.push(`→ acc#${op.account_id_to}`);
+    if (op.category_id) details.push(`cat#${op.category_id}`);
+    if (op.comment) details.push(`“${op.comment}”`);
+    li.textContent = `${title} ${details.length? '— ' + details.join(' ') : ''}`;
+    ui.feedList.appendChild(li);
   });
-  setStatus(`Скопировано: ${res.copied}`);
-  await refreshStepData();
 }
 
-async function onAddOperation() {
-  if (!state.currentStepId) return alert('Выберите шаг');
-  const kind = $('#opKind').value;
-  const sign = $('#opSign').value;
-  const amount = ($('#opAmount').value || '').trim();
-  const currency = $('#opCurrency').value.trim() || 'EUR';
-  const account_id = +$('#opAcc').value;
-  const account_id_to = $('#opAccTo').classList.contains('hidden') ? null : +$('#opAccTo').value;
-  const category_id = $('#catRow').classList.contains('hidden') ? null : +$('#opCat').value;
-  const comment = $('#opComment').value;
-  const payload = { step_id: state.currentStepId, kind, sign, amount, currency, account_id, account_id_to, category_id, comment };
-  await api('/operations', { method:'POST', body: JSON.stringify(payload) });
-  setStatus('Операция добавлена');
-  $('#opAmount').value = '';
-  $('#opComment').value = '';
-  await refreshStepData();
+async function reloadAll() {
+  try {
+    setStatus('Загрузка…');
+    await loadBudgets();
+    renderBudgets();
+
+    await loadAccountsCategories();
+    renderAccountsCategories();
+
+    await loadSteps();
+    renderSteps();
+
+    await loadSummaryFeed();
+    setStatus('Готово');
+  } catch (e) {
+    console.error(e);
+    setStatus(`Ошибка: ${e.message}`, false);
+  }
 }
 
-// ------- инициализация -------
-async function init() {
-  $('#btnHealth').onclick         = async () => { const r = await api('/health'); setStatus(JSON.stringify(r)); };
-  $('#btnReloadEverything').onclick = onBudgetChanged;
-  $('#budgetSelect').onchange     = onBudgetChanged;
-
-  $('#btnCreateBudget').onclick   = onCreateBudget;
-
-  $('#btnAddAccount').onclick     = onAddAccount;
-  $('#btnAddCategory').onclick    = onAddCategory;
-
-  $('#btnCreateStep').onclick     = onCreateStep;
-  $('#stepSelect').onchange       = onStepChanged;
-  $('#btnRefreshStep').onclick    = refreshStepData;
-  $('#btnCopyPlanned').onclick    = onCopyPlanned;
-
-  $('#btnAddOperation').onclick   = onAddOperation;
-  $('#opSign').onchange           = updateOpFormVisibility;
-
-  computeDefaultMonth();
-  updateOpFormVisibility();
-
-  await loadBudgets();
-  if (!state.currentBudgetId && state.budgets.length) state.currentBudgetId = state.budgets[0].id;
-  $('#budgetSelect').value = state.currentBudgetId;
-
-  await onBudgetChanged();
+async function reloadForBudgetChange() {
+  try {
+    setStatus('Обновление для выбранного бюджета…');
+    state.currentBudgetId = Number(ui.budgetSelect.value);
+    await loadAccountsCategories();
+    renderAccountsCategories();
+    await loadSteps();
+    renderSteps();
+    await loadSummaryFeed();
+    setStatus('Готово');
+  } catch (e) {
+    console.error(e);
+    setStatus(`Ошибка: ${e.message}`, false);
+  }
 }
 
-init().catch(e => setStatus(`Ошибка инициализации: ${e.message}`));
-JS
+async function reloadForStepChange() {
+  try {
+    setStatus('Обновление шага…');
+    state.currentStepId = Number(ui.stepSelect.value);
+    await loadSummaryFeed();
+    setStatus('Готово');
+  } catch (e) {
+    console.error(e);
+    setStatus(`Ошибка: ${e.message}`, false);
+  }
+}
+
+// -------- actions --------
+ui.btnHealth.addEventListener('click', async () => {
+  try {
+    const h = await API.get('/health');
+    setStatus(`API OK: ${h.status}`);
+  } catch (e) {
+    setStatus(`API ошибка: ${e.message}`, false);
+  }
+});
+
+ui.btnReloadEverything.addEventListener('click', reloadAll);
+ui.budgetSelect.addEventListener('change', reloadForBudgetChange);
+ui.stepSelect.addEventListener('change', reloadForStepChange);
+ui.btnRefreshStep.addEventListener('click', reloadForStepChange);
+
+ui.btnCreateBudget.addEventListener('click', async () => {
+  try {
+    const name = ui.budgetName.value.trim();
+    const currency = ui.budgetCurrency.value.trim() || 'EUR';
+    const owner_user_id = Number(ui.budgetOwnerId.value || 1);
+    if (!name) throw new Error('Введите название бюджета');
+    await API.post('/budgets', { name, currency, owner_user_id });
+    await reloadAll();
+    setStatus('Бюджет создан');
+  } catch (e) {
+    setStatus(`Ошибка создания бюджета: ${e.message}`, false);
+  }
+});
+
+ui.btnAddAccount.addEventListener('click', async () => {
+  try {
+    if (!state.currentBudgetId) throw new Error('Не выбран бюджет');
+    const name = ui.accName.value.trim();
+    const currency = ui.accCurrency.value.trim() || 'EUR';
+    if (!name) throw new Error('Введите название счёта');
+    await API.post('/accounts', { budget_id: state.currentBudgetId, name, currency });
+    await loadAccountsCategories();
+    renderAccountsCategories();
+    setStatus('Счёт добавлен');
+  } catch (e) {
+    setStatus(`Ошибка добавления счёта: ${e.message}`, false);
+  }
+});
+
+ui.btnAddCategory.addEventListener('click', async () => {
+  try {
+    if (!state.currentBudgetId) throw new Error('Не выбран бюджет');
+    const name = ui.catName.value.trim();
+    if (!name) throw new Error('Введите название категории');
+    await API.post('/categories', { budget_id: state.currentBudgetId, name });
+    await loadAccountsCategories();
+    renderAccountsCategories();
+    setStatus('Категория добавлена');
+  } catch (e) {
+    setStatus(`Ошибка добавления категории: ${e.message}`, false);
+  }
+});
+
+ui.btnCreateStep.addEventListener('click', async () => {
+  try {
+    if (!state.currentBudgetId) throw new Error('Не выбран бюджет');
+    const name = ui.stepName.value.trim() || `Шаг ${new Date().toISOString().slice(0,10)}`;
+    const date_start = ui.stepStart.value || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+    // дата конца — последний день месяца:
+    const endDate = ui.stepEnd.value ||
+      new Date(new Date(new Date().getFullYear(), new Date().getMonth()+1, 0)).toISOString().slice(0,10);
+    await API.post('/steps', {
+      budget_id: state.currentBudgetId,
+      granularity: 'month',
+      name,
+      date_start,
+      date_end: endDate,
+    });
+    await loadSteps();
+    renderSteps();
+    setStatus('Шаг создан');
+  } catch (e) {
+    setStatus(`Ошибка создания шага: ${e.message}`, false);
+  }
+});
+
+ui.opSign.addEventListener('change', () => {
+  const sign = ui.opSign.value;
+  const isTransfer = sign === 'transfer';
+  ui.opAccTo.classList.toggle('hidden', !isTransfer);
+  ui.accToLabel.classList.toggle('hidden', !isTransfer);
+  ui.catRow.classList.toggle('hidden', isTransfer); // при переводе категория не нужна
+});
+
+ui.btnAddOperation.addEventListener('click', async () => {
+  try {
+    if (!state.currentStepId) throw new Error('Не выбран шаг');
+    const payload = {
+      step_id: state.currentStepId,
+      kind: ui.opKind.value,              // planned | actual
+      sign: ui.opSign.value,              // expense | income | transfer
+      amount: String(Number(ui.opAmount.value || 0).toFixed(2)),
+      currency: ui.opCurrency.value.trim() || 'EUR',
+      account_id: Number(ui.opAcc.value),
+      comment: ui.opComment.value.trim() || null,
+    };
+
+    if (payload.sign === 'transfer') {
+      payload.account_id_to = Number(ui.opAccTo.value);
+    } else {
+      payload.category_id = Number(ui.opCat.value);
+    }
+
+    await API.post('/operations', payload);
+    await loadSummaryFeed();
+    setStatus('Операция добавлена');
+  } catch (e) {
+    setStatus(`Ошибка добавления операции: ${e.message}`, false);
+  }
+});
+
+ui.btnCopyPlanned.addEventListener('click', async () => {
+  try {
+    if (!state.currentStepId) throw new Error('Не выбран исходный шаг');
+    const to_step_id = Number(ui.copyToStep.value);
+    if (!to_step_id) throw new Error('Выберите целевой шаг');
+    const res = await API.post(`/steps/${state.currentStepId}/copy_planned`, { to_step_id });
+    await loadSummaryFeed();
+    setStatus(`Скопировано плановых: ${res.copied ?? 0}`);
+  } catch (e) {
+    setStatus(`Ошибка копирования: ${e.message}`, false);
+  }
+});
+
+// -------- init --------
+window.addEventListener('DOMContentLoaded', async () => {
+  // Покажем поля перевода по умолчанию корректно
+  ui.opSign.dispatchEvent(new Event('change'));
+  await reloadAll();
+});
