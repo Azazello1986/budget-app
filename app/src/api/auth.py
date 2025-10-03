@@ -9,7 +9,7 @@ from app.src.security import (
     ssh_fingerprint_sha256, parse_fp_header
 )
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 COOKIE_NAME = "session"
 
@@ -70,7 +70,7 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     user = models.User(
         email=payload.email, name=payload.name,
         password_hash=hash_password(payload.password),
-        ssh_pubkey=payload.ssh_public_key, ssh_fingerprint=ssh_fp
+        ssh_public_key=payload.ssh_public_key, ssh_fingerprint=ssh_fp
     )
     db.add(user); db.commit(); db.refresh(user)
     return user
