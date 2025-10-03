@@ -9,7 +9,9 @@ WORKDIR /app
 
 # Обновим pip и поставим зависимости (без кэша)
 RUN python -m pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir \
+    pip install --no-cache-dir bcrypt==3.2.2 passlib[bcrypt]==1.7.4
+
+RUN pip install --no-cache-dir \
         fastapi \
         uvicorn[standard] \
         SQLAlchemy \
@@ -17,7 +19,6 @@ RUN python -m pip install --upgrade pip setuptools wheel && \
         alembic \
         pydantic \
         email-validator \
-        passlib[bcrypt] \
         python-jose[cryptography]
 
 # Кладём код приложения
