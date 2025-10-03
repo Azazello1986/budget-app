@@ -2,6 +2,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field, EmailStr, model_validator
+from typing import Optional, Literal
 
 # ------------------ USERS ------------------
 class UserCreate(BaseModel):
@@ -45,6 +46,22 @@ class AuthUser(BaseModel):
 # Универсальный ответ "ОК" (например, для logout)
 class MessageOk(BaseModel):
     message: str = "ok"
+
+
+# ---- Compatibility aliases for auth endpoints ----
+# Our auth.py expects these names; map them to existing schemas.
+class RegisterPayload(RegisterRequest):
+    pass
+
+class LoginPayload(LoginRequest):
+    pass
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+
+class UserOut(AuthUser):
+    pass
 
 
 # ------------------ BUDGETS ------------------
