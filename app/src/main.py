@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware  # ← CORS
 from app.src.api import (
     users,
     budgets,
@@ -11,19 +12,33 @@ from app.src.api import (
 
 app = FastAPI(title="Budget API")
 
-# Все API доступны под префиксом /api
-app.include_router(users.router,      prefix="/api/users",      tags=["users"])       # /api/users
-app.include_router(budgets.router,    prefix="/api/budgets",    tags=["budgets"])     # /api/budgets
-app.include_router(accounts.router,   prefix="/api/accounts",   tags=["accounts"])    # /api/accounts
-app.include_router(categories.router, prefix="/api/categories", tags=["categories"])  # /api/categories
-app.include_router(steps.router,      prefix="/api/steps",      tags=["steps"])       # /api/steps
-app.include_router(operations.router, prefix="/api/operations", tags=["operations"])  # /api/operations
-app.include_router(auth.router,       prefix="/api/auth",       tags=["auth"])        # /api/auth
+# --- CORS ---
+# Разрешаем фронту с budget.zotkin.me ходить на API.
+# Если будешь открывать GUI и с других хостов — добавь их сюда.
+allowed_origins = [
+    "https://budget.zotkin.me",
+    "http://budget.zotkin.me",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,          # для cookie-сессий
+    allow_methods=["*"],             # позволяем все методы (GET/POST/PUT/DELETE/OPTIONS…)
+    allow_headers=["*"],             # позволяем любые заголовки
+)
+
+# --- Роутеры под /api ---
+app.include_router(users.router,      prefix="/api/users",      tags=["users"])
+app.include_router(budgets.router,    prefix="/api/budgets",    tags=["budgets"])
+app.include_router(accounts.router,   prefix="/api/accounts",   tags=["accounts"])
+app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
+app.include_router(steps.router,      prefix="/api/steps",      tags=["steps"])
+app.include_router(operations.router, prefix="/api/operations", tags=["operations"])
+app.include_router(auth.router,       prefix="/api/auth",       tags=["auth"])
 
 @app.get("/api/health", tags=["meta"])
 def health():
     return {"status": "ok"}
 
-# ВАЖНО:
-# Caddy отдаёт фронтенд (/, /login.html, /register.html, /styles.css, /app.js и т.д.).
-# Поэтому здесь НЕ монтируем StaticFiles и не объявляем корневые HTML-маршруты.
+# ВАЖНО: статику отдаёт Caddy, поэтому здесь ничего не монтируем.
