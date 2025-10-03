@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, Header
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, Header, Request
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -56,10 +56,31 @@ def current_user(
     raise HTTPException(status_code=401, detail="auth required")
 
 @router.post("/register", response_model=schemas.UserRead, status_code=201)
-def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+async def register(request: Request, db: Session = Depends(get_db)):
+    """
+    Accepts both JSON (application/json) and HTML form submissions (application/x-www-form-urlencoded or multipart/form-data).
+    Expected fields: name, email, password, ssh_public_key (optional)
+    """
+    # Parse payload from JSON or Form
+    ctype = request.headers.get("content-type", "").lower()
+    data: dict
+    if ctype.startswith("application/json"):
+        data = await request.json()
+    else:
+        form = await request.form()
+        data = {k: (v if v != "" else None) for k, v in form.items()}
+
+    # Coerce to Pydantic model (raises 422 details automatically if missing)
+    try:
+        payload = schemas.UserCreate(**data)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    # Uniqueness check
     if db.query(models.User).filter(models.User.email == payload.email).first():
         raise HTTPException(409, "email already registered")
 
+    # Optional SSH public key -> fingerprint
     ssh_fp = None
     if payload.ssh_public_key:
         try:
@@ -68,11 +89,15 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
             raise HTTPException(400, "invalid ssh public key")
 
     user = models.User(
-        email=payload.email, name=payload.name,
+        email=payload.email,
+        name=payload.name,
         password_hash=hash_password(payload.password),
-        ssh_public_key=payload.ssh_public_key, ssh_fingerprint=ssh_fp
+        ssh_public_key=payload.ssh_public_key,
+        ssh_fingerprint=ssh_fp,
     )
-    db.add(user); db.commit(); db.refresh(user)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 @router.post("/login", response_model=schemas.UserRead)
