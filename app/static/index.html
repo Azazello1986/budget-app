@@ -11,10 +11,14 @@
       <div class="brand">💰 Budget App</div>
       <nav class="toolbar-actions">
         <button id="btnHealth" title="Проверка API">API: health</button>
+        <span id="userEmail" class="muted"></span>
+        <a href="/login.html" id="linkLogin">Войти</a>
+        <a href="/register.html" id="linkRegister">Регистрация</a>
+        <button id="btnLogout" class="hidden" title="Выйти">Выйти</button>
       </nav>
     </header>
 
-    <main class="grid">
+    <main id="app" class="grid hidden">
       <!-- Блок выбора бюджета -->
       <section class="card">
         <h2>Бюджет</h2>
@@ -146,11 +150,57 @@
         <ul id="feedList" class="feed"></ul>
       </section>
     </main>
+    <!-- Плашка для неавторизованных -->
+    <section id="notAuthed" class="card hidden" style="max-width: 760px; margin: 2rem auto;">
+      <h2>Требуется вход</h2>
+      <p>Чтобы пользоваться приложением, пожалуйста <a href="/login.html">войдите</a> или <a href="/register.html">зарегистрируйтесь</a>.</p>
+    </section>
 
     <footer class="footer">
       <span id="status">Готово</span>
     </footer>
 
+    <script>
+      // Базовый URL API для фронта
+      window.API_BASE = '/api';
+
+      // Простейшая видимость интерфейса в зависимости от авторизации
+      (function () {
+        try {
+          const token = localStorage.getItem('auth_token'); // устанавливается после логина
+          const email = localStorage.getItem('auth_email') || '';
+          const app = document.getElementById('app');
+          const notAuthed = document.getElementById('notAuthed');
+          const userEmail = document.getElementById('userEmail');
+          const linkLogin = document.getElementById('linkLogin');
+          const linkRegister = document.getElementById('linkRegister');
+          const btnLogout = document.getElementById('btnLogout');
+
+          if (token) {
+            app?.classList.remove('hidden');
+            notAuthed?.classList.add('hidden');
+            if (userEmail) userEmail.textContent = email ? `• ${email}` : '';
+            linkLogin?.classList.add('hidden');
+            linkRegister?.classList.add('hidden');
+            btnLogout?.classList.remove('hidden');
+            btnLogout?.addEventListener('click', () => {
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('auth_email');
+              location.href = '/login.html';
+            });
+          } else {
+            app?.classList.add('hidden');
+            notAuthed?.classList.remove('hidden');
+            linkLogin?.classList.remove('hidden');
+            linkRegister?.classList.remove('hidden');
+            btnLogout?.classList.add('hidden');
+            if (userEmail) userEmail.textContent = '';
+          }
+        } catch (e) {
+          console.warn('Auth UI init error:', e);
+        }
+      })();
+    </script>
     <script src="/app.js"></script>
   </body>
 </html>

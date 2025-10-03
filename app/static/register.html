@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Register · Budget App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="/styles.css" rel="stylesheet" />
+</head>
+<body class="auth">
+  <main class="auth-card">
+    <h1>Регистрация</h1>
+    <form id="regForm">
+      <input type="text" id="name" placeholder="Имя" required />
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="password" id="password" placeholder="Пароль" required />
+      <textarea id="ssh" placeholder="SSH публичный ключ (опционально)"></textarea>
+      <button type="submit">Создать аккаунт</button>
+    </form>
+    <p><a href="/login.html">У меня уже есть аккаунт</a></p>
+    <p id="msg"></p>
+  </main>
+  <script>
+  const $ = s => document.querySelector(s);
+  $("#regForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      name: $("#name").value.trim(),
+      email: $("#email").value.trim(),
+      password: $("#password").value,
+      ssh_public_key: $("#ssh").value.trim() || null
+    };
+    const r = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      credentials: "include",
+      body: JSON.stringify(payload)
+    });
+    if (r.ok) {
+      // после регистрации можно сразу логин сделать:
+      const r2 = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        credentials: "include",
+        body: JSON.stringify({email: payload.email, password: payload.password})
+      });
+      if (r2.ok) location.href = "/";
+      else $("#msg").textContent = "Зарегистрирован, но вход не выполнен.";
+    } else {
+      $("#msg").textContent = "Ошибка регистрации";
+    }
+  });
+  </script>
+</body>
+</html>

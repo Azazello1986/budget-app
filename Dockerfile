@@ -5,10 +5,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
  && rm -rf /var/lib/apt/lists/*
 
-# Бэкенд-зависимости
 RUN pip install --no-cache-dir \
     fastapi uvicorn[standard] \
-    SQLAlchemy psycopg[binary] alembic pydantic email-validator
+    SQLAlchemy psycopg[binary] alembic pydantic email-validator \
+    passlib[bcrypt] python-jose[cryptography]
 
 # Кладём код
 COPY app ./app

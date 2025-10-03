@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from app.src.api import users, budgets, accounts, categories, steps, operations
+from app.src.api import users, budgets, accounts, categories, steps, operations, auth
 
 app = FastAPI()
 
@@ -11,6 +11,7 @@ app.include_router(accounts.router,   prefix="/accounts",   tags=["accounts"])
 app.include_router(categories.router, prefix="/categories", tags=["categories"])
 app.include_router(steps.router,      prefix="/steps",      tags=["steps"])
 app.include_router(operations.router, prefix="/operations", tags=["operations"])
+app.include_router(auth.router,       prefix="/auth",       tags=["auth"])
 
 @app.get("/health")
 def health():

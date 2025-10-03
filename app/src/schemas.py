@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field, EmailStr, model_validator
 class UserCreate(BaseModel):
     email: EmailStr
     name: str
+    password: str = Field(min_length=8)
+    # Опциональный способ входа: публичный SSH-ключ пользователя
+    ssh_public_key: str | None = None
 
 
 class UserRead(BaseModel):
@@ -16,6 +19,32 @@ class UserRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Запрос на регистрацию — можно использовать UserCreate, но оставим отдельную схему
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    name: str
+    password: str = Field(min_length=8)
+    ssh_public_key: str | None = None
+
+# Запрос на логин по email/паролю
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+# Ответ на успешный логин/регистрацию — отдаем публичные данные пользователя
+class AuthUser(BaseModel):
+    id: int
+    email: EmailStr
+    name: str
+
+    class Config:
+        from_attributes = True
+
+# Универсальный ответ "ОК" (например, для logout)
+class MessageOk(BaseModel):
+    message: str = "ok"
 
 
 # ------------------ BUDGETS ------------------

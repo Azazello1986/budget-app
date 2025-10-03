@@ -17,6 +17,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String(200))
+    hashed_password: Mapped[str | None] = mapped_column(String(255))  # bcrypt/argon2 hash
+    ssh_public_key: Mapped[str | None] = mapped_column(Text)          # optional SSH public key
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 class Budget(Base):
@@ -70,7 +72,7 @@ class Operation(Base):
     sign: Mapped[str] = mapped_column(Sign, nullable=False)      # income | expense | transfer
     amount: Mapped[float] = mapped_column(Numeric(18, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     account_id: Mapped[int] = mapped_column(ForeignKey("account.id", ondelete="RESTRICT"), nullable=False)
     account_id_to: Mapped[int | None] = mapped_column(ForeignKey("account.id", ondelete="RESTRICT"))
     category_id: Mapped[int | None] = mapped_column(ForeignKey("category.id", ondelete="SET NULL"))
