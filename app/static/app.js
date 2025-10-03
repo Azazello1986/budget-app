@@ -23,6 +23,7 @@ const API = {
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const asArray = (x) => (Array.isArray(x) ? x : []);
 const fmtMoney = (v, c='EUR') => `${v} ${c}`;
 
 function setStatus(msg, ok=true) {
@@ -97,27 +98,34 @@ const ui = {
 // -------- load & render --------
 async function loadBudgets() {
   const data = await API.get('/budgets');
-  state.budgets = data;
-  // Выбираем последний созданный бюджет (по id)
-  const last = [...data].sort((a,b)=>b.id-a.id)[0] || null;
+  const arr = asArray(data);
+  state.budgets = arr;
+  const last = arr.slice().sort((a,b)=>b.id-a.id)[0] || null;
   state.currentBudgetId = last ? last.id : null;
+  if (!Array.isArray(data)) {
+    console.warn('Unexpected /budgets payload:', data);
+  }
 }
 
 function renderBudgets() {
   const sel = ui.budgetSelect;
   sel.innerHTML = '';
   state.budgets
+    .slice()
     .sort((a,b)=>b.id-a.id)
     .forEach(b => option(sel, b.id, `#${b.id} — ${b.name} (${b.currency})`));
   if (state.currentBudgetId) sel.value = String(state.currentBudgetId);
 }
 
 async function loadAccountsCategories() {
-  // API /accounts возвращает все; фильтруем по budget_id
-  const [allAcc, allCat] = await Promise.all([
+  const [accRaw, catRaw] = await Promise.all([
     API.get('/accounts'),
     API.get('/categories'),
   ]);
+  const allAcc = asArray(accRaw);
+  const allCat = asArray(catRaw);
+  if (!Array.isArray(accRaw)) console.warn('Unexpected /accounts payload:', accRaw);
+  if (!Array.isArray(catRaw)) console.warn('Unexpected /categories payload:', catRaw);
   state.accounts = allAcc.filter(a => a.budget_id === state.currentBudgetId);
   state.categories = allCat.filter(c => c.budget_id === state.currentBudgetId);
 }
@@ -137,7 +145,7 @@ function renderAccountsCategories() {
     ui.categoriesList.appendChild(li);
   });
 
-  // заполняем селекты для операций
+  // селекты для операций
   ui.opAcc.innerHTML = '';
   state.accounts.forEach(a => option(ui.opAcc, a.id, `${a.name} (#${a.id})`));
   ui.opAccTo.innerHTML = '';
@@ -147,16 +155,19 @@ function renderAccountsCategories() {
 }
 
 async function loadSteps() {
-  if (!state.currentBudgetId) { state.steps = []; return; }
-  state.steps = await API.get(`/steps?budget_id=${state.currentBudgetId}`);
-  // Выбираем последний шаг
-  const last = [...state.steps].sort((a,b)=>b.id-a.id)[0] || null;
+  if (!state.currentBudgetId) { state.steps = []; state.currentStepId = null; return; }
+  const raw = await API.get(`/steps?budget_id=${state.currentBudgetId}`);
+  const arr = asArray(raw);
+  if (!Array.isArray(raw)) console.warn('Unexpected /steps payload:', raw);
+  state.steps = arr;
+  const last = arr.slice().sort((a,b)=>b.id-a.id)[0] || null;
   state.currentStepId = last ? last.id : null;
 }
 
 function renderSteps() {
   ui.stepSelect.innerHTML = '';
   state.steps
+    .slice()
     .sort((a,b)=>b.id-a.id)
     .forEach(s => option(ui.stepSelect, s.id, `#${s.id} ${s.name} ${s.date_start}..${s.date_end}`));
   if (state.currentStepId) ui.stepSelect.value = String(state.currentStepId);
@@ -164,18 +175,23 @@ function renderSteps() {
   // селект для копирования
   ui.copyToStep.innerHTML = '';
   state.steps
+    .slice()
     .sort((a,b)=>b.id-a.id)
     .forEach(s => option(ui.copyToStep, s.id, `#${s.id} ${s.name}`));
 }
 
 async function loadSummaryFeed() {
   if (!state.currentStepId) { ui.summaryBox.textContent = '–'; ui.feedList.innerHTML=''; return; }
-  const [sum, feed] = await Promise.all([
+  const [sum, feedRaw] = await Promise.all([
     API.get(`/steps/${state.currentStepId}/summary`),
     API.get(`/steps/${state.currentStepId}/feed`),
   ]);
-  ui.summaryBox.textContent = `Доходы: ${sum.total_income}\nРасходы: ${sum.total_expense}\nСальдо: ${sum.net}`;
-  // лента
+  const feed = asArray(feedRaw);
+  if (!Array.isArray(feedRaw)) console.warn('Unexpected /feed payload:', feedRaw);
+
+  ui.summaryBox.textContent =
+    `Доходы: ${sum?.total_income ?? 0}\nРасходы: ${sum?.total_expense ?? 0}\nСальдо: ${sum?.net ?? 0}`;
+
   ui.feedList.innerHTML = '';
   feed.forEach(op => {
     const li = document.createElement('li');
@@ -301,7 +317,6 @@ ui.btnCreateStep.addEventListener('click', async () => {
     if (!state.currentBudgetId) throw new Error('Не выбран бюджет');
     const name = ui.stepName.value.trim() || `Шаг ${new Date().toISOString().slice(0,10)}`;
     const date_start = ui.stepStart.value || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
-    // дата конца — последний день месяца:
     const endDate = ui.stepEnd.value ||
       new Date(new Date(new Date().getFullYear(), new Date().getMonth()+1, 0)).toISOString().slice(0,10);
     await API.post('/steps', {
@@ -324,7 +339,7 @@ ui.opSign.addEventListener('change', () => {
   const isTransfer = sign === 'transfer';
   ui.opAccTo.classList.toggle('hidden', !isTransfer);
   ui.accToLabel.classList.toggle('hidden', !isTransfer);
-  ui.catRow.classList.toggle('hidden', isTransfer); // при переводе категория не нужна
+  ui.catRow.classList.toggle('hidden', isTransfer);
 });
 
 ui.btnAddOperation.addEventListener('click', async () => {
@@ -332,20 +347,18 @@ ui.btnAddOperation.addEventListener('click', async () => {
     if (!state.currentStepId) throw new Error('Не выбран шаг');
     const payload = {
       step_id: state.currentStepId,
-      kind: ui.opKind.value,              // planned | actual
-      sign: ui.opSign.value,              // expense | income | transfer
+      kind: ui.opKind.value,
+      sign: ui.opSign.value,
       amount: String(Number(ui.opAmount.value || 0).toFixed(2)),
       currency: ui.opCurrency.value.trim() || 'EUR',
       account_id: Number(ui.opAcc.value),
       comment: ui.opComment.value.trim() || null,
     };
-
     if (payload.sign === 'transfer') {
       payload.account_id_to = Number(ui.opAccTo.value);
     } else {
       payload.category_id = Number(ui.opCat.value);
     }
-
     await API.post('/operations', payload);
     await loadSummaryFeed();
     setStatus('Операция добавлена');
@@ -361,7 +374,7 @@ ui.btnCopyPlanned.addEventListener('click', async () => {
     if (!to_step_id) throw new Error('Выберите целевой шаг');
     const res = await API.post(`/steps/${state.currentStepId}/copy_planned`, { to_step_id });
     await loadSummaryFeed();
-    setStatus(`Скопировано плановых: ${res.copied ?? 0}`);
+    setStatus(`Скопировано плановых: ${res?.copied ?? 0}`);
   } catch (e) {
     setStatus(`Ошибка копирования: ${e.message}`, false);
   }
@@ -369,7 +382,6 @@ ui.btnCopyPlanned.addEventListener('click', async () => {
 
 // -------- init --------
 window.addEventListener('DOMContentLoaded', async () => {
-  // Покажем поля перевода по умолчанию корректно
   ui.opSign.dispatchEvent(new Event('change'));
   await reloadAll();
 });
