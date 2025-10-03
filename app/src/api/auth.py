@@ -9,7 +9,7 @@ from app.src.security import (
     ssh_fingerprint_sha256, parse_fp_header
 )
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 COOKIE_NAME = "session"
 
