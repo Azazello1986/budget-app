@@ -111,3 +111,7 @@ def logout(response: Response):
 @router.get("/me", response_model=schemas.MeRead)
 def me(user: models.User = Depends(current_user)):
     return user
+
+@router.get("/health")
+def health():
+    return {"status": "ok", "scope": "auth"}
