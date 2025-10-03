@@ -4,18 +4,19 @@ from app.src.api import users, budgets, accounts, categories, steps, operations,
 
 app = FastAPI()
 
-# API без префикса /api — префикс отрезает Caddy
-app.include_router(users.router,      prefix="/users",      tags=["users"])
-app.include_router(budgets.router,    prefix="/budgets",    tags=["budgets"])
-app.include_router(accounts.router,   prefix="/accounts",   tags=["accounts"])
-app.include_router(categories.router, prefix="/categories", tags=["categories"])
-app.include_router(steps.router,      prefix="/steps",      tags=["steps"])
-app.include_router(operations.router, prefix="/operations", tags=["operations"])
-app.include_router(auth.router,       prefix="/auth",       tags=["auth"])
+# Все API доступны под префиксом /api
+app.include_router(users.router,      prefix="/api/users",      tags=["users"])  # /api/users
+app.include_router(budgets.router,    prefix="/api/budgets",    tags=["budgets"])  # /api/budgets
+app.include_router(accounts.router,   prefix="/api/accounts",   tags=["accounts"])  # /api/accounts
+app.include_router(categories.router, prefix="/api/categories", tags=["categories"])  # /api/categories
+app.include_router(steps.router,      prefix="/api/steps",      tags=["steps"])  # /api/steps
+app.include_router(operations.router, prefix="/api/operations", tags=["operations"])  # /api/operations
+app.include_router(auth.router,       prefix="/api/auth",       tags=["auth"])  # /api/auth
 
-@app.get("/health")
+@app.get("/api/health")
 def health():
     return {"status": "ok"}
 
-# GUI отдаём статикой на /
+# GUI: раздаём статику с корня домена
+# Важно: монтируем после роутов API, чтобы /api/* обрабатывалось приложением
 app.mount("/", StaticFiles(directory="app/static", html=True), name="gui")

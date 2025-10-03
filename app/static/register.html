@@ -32,7 +32,7 @@
     const r = await fetch("/api/auth/register", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      credentials: "include",
+      credentials: "same-origin",
       body: JSON.stringify(payload)
     });
     if (r.ok) {

@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, Header
 from sqlalchemy.orm import Session
-from pydantic import EmailStr
 
 from app.db.deps import get_db
 from app.db import models
@@ -10,7 +9,7 @@ from app.src.security import (
     ssh_fingerprint_sha256, parse_fp_header
 )
 
-router = APIRouter()
+router = APIRouter(tags=["auth"])
 
 COOKIE_NAME = "session"
 
@@ -27,21 +26,33 @@ def current_user(
     db: Session = Depends(get_db),
     session: str | None = Cookie(default=None, alias=COOKIE_NAME),
     x_ssh_fp: str | None = Header(default=None, alias="X-SSH-Key-Fingerprint"),
+    authorization: str | None = Header(default=None, alias="Authorization"),
 ):
-    # 1) JWT из cookie
+    # 0) Bearer token in Authorization header
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        uid = decode_jwt(token)
+        if uid:
+            user = db.get(models.User, uid)
+            if user:
+                return user
+
+    # 1) JWT from cookie
     if session:
         uid = decode_jwt(session)
         if uid:
-            user = db.query(models.User).get(uid)
+            user = db.get(models.User, uid)
             if user:
                 return user
-    # 2) SSH fingerprint хедер
+
+    # 2) SSH fingerprint header
     if x_ssh_fp:
         fp = parse_fp_header(x_ssh_fp)
         if fp:
             user = db.query(models.User).filter(models.User.ssh_fingerprint == fp).first()
             if user:
                 return user
+
     raise HTTPException(status_code=401, detail="auth required")
 
 @router.post("/register", response_model=schemas.UserRead, status_code=201)
@@ -73,11 +84,30 @@ def login(payload: schemas.LoginPayload, response: Response, db: Session = Depen
     set_session_cookie(response, token)
     return user
 
+@router.post("/refresh", response_model=schemas.UserRead)
+def refresh(response: Response, db: Session = Depends(get_db), session: str | None = Cookie(default=None, alias=COOKIE_NAME), authorization: str | None = Header(default=None, alias="Authorization")):
+    uid = None
+    if authorization and authorization.lower().startswith("bearer "):
+        uid = decode_jwt(authorization.split(" ", 1)[1].strip())
+    if not uid and session:
+        uid = decode_jwt(session)
+    if not uid:
+        raise HTTPException(401, "auth required")
+
+    user = db.get(models.User, uid)
+    if not user:
+        raise HTTPException(401, "auth required")
+
+    # Issue a fresh cookie
+    token = create_jwt(user.id)
+    set_session_cookie(response, token)
+    return user
+
 @router.post("/logout")
 def logout(response: Response):
     clear_session_cookie(response)
     return {"ok": True}
 
 @router.get("/me", response_model=schemas.MeRead)
-def me(user = Depends(current_user)):
+def me(user: models.User = Depends(current_user)):
     return user
