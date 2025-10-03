@@ -19,16 +19,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Upgrade schema: add auth-related columns to user."""
-    with op.batch_alter_table('user') as batch_op:
-        batch_op.add_column(sa.Column('hashed_password', sa.String(length=255), nullable=True))
-        batch_op.add_column(sa.Column('ssh_public_key', sa.Text(), nullable=True))
+    """Upgrade schema: add auth-related columns to user (idempotent)."""
+    # Use IF NOT EXISTS to avoid errors if columns already present
+    op.execute('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS hashed_password VARCHAR(255)')
+    op.execute('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS ssh_public_key TEXT')
 
 
 def downgrade() -> None:
-    """Downgrade schema: drop auth-related columns from user."""
-    with op.batch_alter_table('user') as batch_op:
-        batch_op.drop_column('ssh_public_key')
-        batch_op.drop_column('hashed_password')
+    """Downgrade schema: drop auth-related columns from user (idempotent)."""
+    op.execute('ALTER TABLE "user" DROP COLUMN IF EXISTS ssh_public_key')
+    op.execute('ALTER TABLE "user" DROP COLUMN IF EXISTS hashed_password')
 
 
