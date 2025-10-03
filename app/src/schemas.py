@@ -63,6 +63,10 @@ class TokenResponse(BaseModel):
 class UserOut(AuthUser):
     pass
 
+# Response schema for /auth/me
+class MeRead(AuthUser):
+    pass
+
 
 # ------------------ BUDGETS ------------------
 class BudgetCreate(BaseModel):
