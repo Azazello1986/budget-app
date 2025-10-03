@@ -2,14 +2,15 @@ import base64
 import hashlib
 import re
 from datetime import datetime, timedelta
+import os
 from typing import Optional
 
 from jose import jwt
 from passlib.hash import bcrypt
 
-JWT_SECRET = "CHANGE_ME_SECRET"  # лучше брать из ENV
-JWT_ALG = "HS256"
-JWT_TTL_MIN = 60 * 24 * 14  # 14 дней
+JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME_SECRET")  # override in ENV
+JWT_ALG = os.getenv("JWT_ALG", "HS256")
+JWT_TTL_MIN = int(os.getenv("JWT_TTL_MIN", str(60 * 24 * 14)))  # minutes
 
 def hash_password(p: str) -> str:
     return bcrypt.hash(p)

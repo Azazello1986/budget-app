@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # Подроутеры
 from app.src.api import (
@@ -17,10 +18,19 @@ from app.src.api import (
 app = FastAPI(title="Budget App API", version="0.1.0")
 
 # CORS — чтобы фронт мог ходить в API
+def _parse_origins(val: str | None) -> list[str]:
+    if not val:
+        return ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "https://budget.zotkin.me"]
+    return [o.strip() for o in val.split(",") if o.strip()]
+
+
+ALLOWED_ORIGINS = _parse_origins(os.getenv("CORS_ALLOW_ORIGINS"))
+ALLOW_CREDENTIALS = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
