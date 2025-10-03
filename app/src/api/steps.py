@@ -21,7 +21,7 @@ class _StepCreatePayload(schemas.StepCreate):
 
 @router.post("", response_model=schemas.StepRead)
 def create_step(payload: _StepCreatePayload, db: Session = Depends(get_db)):
-    budget = db.query(models.Budget).get(payload.budget_id)
+    budget = db.get(models.Budget, payload.budget_id)
     if not budget:
         raise HTTPException(status_code=404, detail="budget not found")
 
@@ -103,8 +103,8 @@ class _CopyPlannedPayload(BaseModel):
 
 @router.post("/{from_step_id}/copy_planned")
 def copy_planned_operations(from_step_id: int, payload: _CopyPlannedPayload, db: Session = Depends(get_db)):
-    src = db.query(models.BudgetStep).get(from_step_id)
-    dst = db.query(models.BudgetStep).get(payload.to_step_id)
+    src = db.get(models.BudgetStep, from_step_id)
+    dst = db.get(models.BudgetStep, payload.to_step_id)
     if not src or not dst:
         raise HTTPException(status_code=404, detail="step not found")
     if src.budget_id != dst.budget_id:

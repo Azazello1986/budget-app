@@ -8,8 +8,7 @@ RUN apt-get update \
 WORKDIR /app
 
 # Обновим pip и поставим зависимости (без кэша)
-RUN python -m pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir bcrypt==3.2.2 passlib[bcrypt]==1.7.4
+RUN python -m pip install --upgrade pip setuptools wheel
 
 RUN pip install --no-cache-dir \
         fastapi \
@@ -19,7 +18,9 @@ RUN pip install --no-cache-dir \
         alembic \
         pydantic \
         email-validator \
-        python-jose[cryptography]
+        python-jose[cryptography] \
+        passlib[bcrypt]==1.7.4 \
+        bcrypt>=4.1.2
 
 # Кладём код приложения
 COPY app ./app
